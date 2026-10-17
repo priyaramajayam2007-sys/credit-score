@@ -2,6 +2,11 @@
 
 An explainable, alternative credit-scoring prototype for gig workers and freelancers.
 
+**Live demo:** _add your Streamlit link here_
+
+> **Educational estimate only.** This is not an official credit score and is not
+> accepted by banks or lenders.
+
 ## The problem
 Gig workers (drivers, freelancers, creators) have volatile income, so traditional credit
 scoring often labels them "high risk" even when they are financially responsible. This
@@ -20,10 +25,16 @@ Score creditworthiness from signals traditional bureaus ignore, and **explain ev
 Each factor is scored 0-100, weighted, and scaled to a 300-900 score with a risk band.
 
 ## Features
-- Score gauge with risk band for each worker
-- "Why this score?" breakdown in plain English plus points per factor
-- Side-by-side comparison of all workers
-- Methodology and limitations tab
+- **Worker profiles:** score gauge, risk band, and plain-English "why this score?"
+- **Compare workers:** five sample profiles side by side
+- **Try your own numbers:** enter 6 months of income and savings to get your own estimate
+- **How to improve:** tips targeting the weakest factors
+- **What-if sliders:** see how extra savings or an extra client would change the score
+- **Methodology, privacy and limitations** tab
+
+## Privacy
+Numbers typed into the "Try your own numbers" tab are used only for the current session.
+Nothing is stored in a database or sent anywhere else.
 
 ## Run locally
 ```bash
@@ -33,27 +44,37 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Run the tests
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ## Project structure
 ```
-app.py            # Streamlit UI
-scoring.py        # Scoring logic (testable on its own)
-generate_data.py  # Synthetic data generator
-data/workers.csv  # Generated sample data
+app.py                  # Streamlit UI
+scoring.py              # Scoring logic, validation and tips (testable on its own)
+generate_data.py        # Synthetic data generator
+data/workers.csv        # Generated sample data
+tests/test_scoring.py   # Unit tests for the scoring logic
 ```
 
 ## Honest limitations
-- **All data is synthetic.** The seed was chosen so the five sample profiles show
-  clearly different cases. No real people or platforms are used.
+- **Sample workers use synthetic data.** The seed was chosen so the five sample profiles
+  show clearly different cases. No real people or platforms are used.
 - Weights are hand-picked, not learned from repayment data.
 - Six months is a short window. Any real deployment needs consented data access,
   security review, and a fairness audit.
 
-## Future work
-- Consent-based bank/wallet data connections
-- Validate and tune weights against real repayment outcomes
-- Fairness and bias audit
-- Compare the formula against an ML model
-- "What-if" simulator for improving a score
+## Roadmap: from prototype to useful app
+- [x] Interactive input for custom numbers, tips and what-if sliders
+- [x] Unit tests for the scoring logic
+- [ ] Validate and tune weights against real repayment outcomes
+- [ ] Fairness and bias audit
+- [ ] CSV upload of a bank or wallet statement summary
+- [ ] Consent-based data access instead of manual entry
+- [ ] Downloadable one-page summary
+- [ ] Feedback form and testing with real freelancers
 
 ## Tech
-Python, pandas, NumPy, Plotly, Streamlit
+Python, pandas, NumPy, Plotly, Streamlit, pytest

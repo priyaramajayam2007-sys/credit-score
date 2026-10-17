@@ -106,3 +106,58 @@ def explain(result: dict) -> list[str]:
         good, bad = notes[name]
         lines.append(f"**{name}** ({value:.0f}/100): {good if value >= 60 else bad}")
     return lines
+
+
+# ---------------------------------------------------------------------------
+# Custom inputs (for the "Try your own numbers" tab)
+# ---------------------------------------------------------------------------
+
+TIPS = {
+    "Income consistency": (
+        "Try to smooth out income swings: keep a retainer or repeat client, "
+        "spread big projects across months, and send invoices on a regular schedule."
+    ),
+    "Savings behaviour": (
+        "Set up an automatic transfer on payday, even a small fixed amount. "
+        "Saving every month counts as much as the amount you save."
+    ),
+    "Platform diversity & tenure": (
+        "Earn from more than one client or platform so one loss does not hurt you. "
+        "Tenure grows with time, so keep records of how long you have been earning."
+    ),
+    "Income trend": (
+        "Raise your rates gradually, offer a higher-value service, or upsell "
+        "existing clients so income grows instead of staying flat."
+    ),
+}
+
+
+def validate_inputs(incomes: list[float], savings: list[float]) -> list[str]:
+    """Return a list of problems with the entered numbers (empty list = valid)."""
+    errors = []
+    if any(x < 0 for x in incomes) or any(x < 0 for x in savings):
+        errors.append("Income and savings cannot be negative.")
+    for i, (inc, sav) in enumerate(zip(incomes, savings), start=1):
+        if sav > inc:
+            errors.append(f"Month {i}: savings are higher than income.")
+    if sum(incomes) <= 0:
+        errors.append("Enter income for at least one month.")
+    return errors
+
+
+def score_from_inputs(incomes, savings, platforms: int, tenure_months: int) -> dict:
+    """Score one person from typed-in numbers (oldest month first)."""
+    df = pd.DataFrame({
+        "month": [f"M{i}" for i in range(1, len(incomes) + 1)],
+        "income": list(incomes),
+        "savings": list(savings),
+        "platforms": platforms,
+        "tenure_months": tenure_months,
+    })
+    return score_worker(df)
+
+
+def improvement_tips(result: dict, limit: int = 2) -> list[tuple[str, float, str]]:
+    """The weakest factors (below 80/100) with a practical tip for each."""
+    weakest = sorted(result["factors"].items(), key=lambda kv: kv[1])
+    return [(name, value, TIPS[name]) for name, value in weakest if value < 80][:limit]

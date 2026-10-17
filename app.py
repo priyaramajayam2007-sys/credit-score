@@ -3,7 +3,16 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from generate_data import DATA_PATH, generate_data
-from scoring import SCORE_MAX, SCORE_MIN, WEIGHTS, explain, score_worker
+from scoring import (
+    SCORE_MAX,
+    SCORE_MIN,
+    WEIGHTS,
+    explain,
+    improvement_tips,
+    score_from_inputs,
+    score_worker,
+    validate_inputs,
+)
 
 st.set_page_config(page_title="Invisible Credit Score", page_icon="💳", layout="wide")
 
@@ -41,6 +50,16 @@ def gauge(score: int, band: str) -> go.Figure:
     return fig
 
 
+def points_chart(res: dict) -> go.Figure:
+    pts = pd.Series(res["points"]).sort_values()
+    fig = go.Figure(go.Bar(x=pts.values, y=pts.index, orientation="h"))
+    fig.update_layout(
+        title=f"Points added above the base of {SCORE_MIN}",
+        height=260, margin=dict(l=10, r=10, t=40, b=10),
+    )
+    return fig
+
+
 df = load_data()
 results = {name: score_worker(group) for name, group in df.groupby("worker")}
 
@@ -51,11 +70,13 @@ st.caption(
     "instead of a traditional credit history."
 )
 st.info(
-    "**Prototype notice:** all data here is synthetic (randomly generated). "
-    "No real people, platforms, or financial records are used."
+    "**Prototype notice:** the sample workers use synthetic (randomly generated) data. "
+    "This is an educational estimate, not an official credit score."
 )
 
-tab_profile, tab_compare, tab_how = st.tabs(["Worker profile", "Compare workers", "How it works"])
+tab_profile, tab_compare, tab_custom, tab_how = st.tabs(
+    ["Worker profile", "Compare workers", "Try your own numbers", "How it works"]
+)
 
 # ---------- Tab 1: single worker ----------
 with tab_profile:
@@ -73,13 +94,7 @@ with tab_profile:
         st.subheader("Why this score?")
         for line in explain(res):
             st.markdown(f"- {line}")
-        pts = pd.Series(res["points"]).sort_values()
-        fig = go.Figure(go.Bar(x=pts.values, y=pts.index, orientation="h"))
-        fig.update_layout(
-            title=f"Points added above the base of {SCORE_MIN}",
-            height=260, margin=dict(l=10, r=10, t=40, b=10),
-        )
-        st.plotly_chart(fig)
+        st.plotly_chart(points_chart(res))
 
     st.subheader("Income and savings by month")
     fig = go.Figure()
@@ -112,7 +127,72 @@ with tab_compare:
         "a lower earner who is steady and saves regularly. That is the point."
     )
 
-# ---------- Tab 3: methodology ----------
+# ---------- Tab 3: your own numbers ----------
+with tab_custom:
+    st.subheader("Try your own numbers")
+    st.warning(
+        "**Educational estimate only.** This is not an official credit score and no "
+        "bank or lender will accept it. Your numbers are used only to calculate the "
+        "result on this page and are **not saved or shared**."
+    )
+    st.markdown("Enter your last 6 months, **oldest month first** (Month 6 = most recent).")
+
+    default_income = [30000, 28000, 35000, 26000, 32000, 34000]
+    default_savings = [3000, 2000, 4000, 1500, 3000, 3500]
+    incomes, savings = [], []
+    for i, col in enumerate(st.columns(6)):
+        with col:
+            st.markdown(f"**Month {i + 1}**")
+            incomes.append(st.number_input(
+                "Income (₹)", min_value=0, value=default_income[i], step=500, key=f"inc_{i}"))
+            savings.append(st.number_input(
+                "Savings (₹)", min_value=0, value=default_savings[i], step=500, key=f"sav_{i}"))
+
+    c1, c2 = st.columns(2)
+    platforms = c1.number_input(
+        "Platforms or clients you earn from", min_value=1, max_value=10, value=2, step=1)
+    tenure = c2.number_input(
+        "Months you have been freelancing", min_value=0, max_value=240, value=12, step=1)
+
+    errors = validate_inputs(incomes, savings)
+    if errors:
+        for message in errors:
+            st.error(message)
+    else:
+        mine = score_from_inputs(incomes, savings, int(platforms), int(tenure))
+        left, right = st.columns([1, 1])
+        with left:
+            st.plotly_chart(gauge(mine["score"], mine["band"]))
+            st.markdown(f"### {mine['band']}")
+        with right:
+            st.subheader("Why this score?")
+            for line in explain(mine):
+                st.markdown(f"- {line}")
+            st.plotly_chart(points_chart(mine))
+
+        st.subheader("How to improve")
+        tips = improvement_tips(mine)
+        if tips:
+            for factor, value, tip in tips:
+                st.markdown(f"**{factor}** ({value:.0f}/100): {tip}")
+        else:
+            st.success("All four factors score 80 or higher. Keep up the habits that got you here.")
+
+        st.subheader("What if you changed something?")
+        w1, w2 = st.columns(2)
+        extra_save = w1.slider("Extra savings per month (₹)", 0, 10000, 0, step=500)
+        extra_plat = w2.slider("Extra clients or platforms", 0, 3, 0)
+        if extra_save or extra_plat:
+            new_savings = [min(s + extra_save, inc) for s, inc in zip(savings, incomes)]
+            what_if = score_from_inputs(
+                incomes, new_savings, int(platforms) + extra_plat, int(tenure))
+            st.metric(
+                "Score with these changes",
+                what_if["score"],
+                delta=what_if["score"] - mine["score"],
+            )
+
+# ---------- Tab 4: methodology ----------
 with tab_how:
     st.subheader("Scoring method")
     st.markdown(
@@ -129,11 +209,17 @@ with tab_how:
             "Whether income is rising or falling",
         ],
     }))
+    st.markdown("#### Privacy")
+    st.markdown(
+        "Numbers typed into the **Try your own numbers** tab are processed only for "
+        "your current session. Nothing is stored in a database or sent anywhere else."
+    )
     st.markdown("#### Limitations")
     st.markdown(
-        "- Uses synthetic data; a real system needs consented access to real accounts.\n"
+        "- Sample workers use synthetic data; a real system needs consented access to real accounts.\n"
         "- Weights are hand-picked, not learned. They would need validating against "
         "real repayment outcomes.\n"
         "- Six months is a short window, and any scoring system needs a fairness audit "
-        "before real use."
+        "before real use.\n"
+        "- This is an educational estimate. It is not accepted by banks or lenders."
     )
