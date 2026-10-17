@@ -2,7 +2,7 @@
 
 An explainable, alternative credit-scoring prototype for gig workers and freelancers.
 
-**Live demo:** _add your Streamlit link here_
+**Live demo:** (https://credit-score-e25b3adeb8tvagfbjmuja4.streamlit.app/)_
 
 > **Educational estimate only.** This is not an official credit score and is not
 > accepted by banks or lenders.
